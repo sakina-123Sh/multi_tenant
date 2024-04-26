@@ -30,7 +30,7 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
-INSTALLED_APPS = [
+SHARED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -38,8 +38,25 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'django_tenants',
     'multitenant_users',
 ]
+
+TENANT_APPS = [
+    # The following Django contrib apps must be in TENANT_APPS
+    'django.contrib.contenttypes',
+    'django.contrib.auth',
+    'django.contrib.admin',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    # tenant-specific apps
+    'multitenant_users',
+]
+
+INSTALLED_APPS = list(SHARED_APPS) + [
+    app for app in TENANT_APPS if app not in SHARED_APPS
+]
+
 
 MIDDLEWARE = [
     'multitenant_project.middleware.MultiTenancyMiddleware',
@@ -76,29 +93,24 @@ WSGI_APPLICATION = 'multitenant_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-DATABASES_DIR = BASE_DIR / 'tenant_databases/'
-
-# Create the directory if it doesn't exist
-DATABASES_DIR.mkdir(parents=True, exist_ok=True)
-
-# Function to get the database file path for a specific tenant
-def get_database_file_path(tenant_id):
-    return DATABASES_DIR / f'db_{tenant_id}.sqlite3'
-
-# Dictionary to map tenant IDs to database file paths
-TENANT_DATABASE_MAPPING = {
-    'tenant1': get_database_file_path('tenant1'),
-    'tenant2': get_database_file_path('tenant2'),
-    # Add more mappings as needed
-}
-
-# Configure the default database using the first tenant's database file
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': list(TENANT_DATABASE_MAPPING.values())[0],  # Use the first tenant's database file
+        'ENGINE': 'django_tenants.postgresql_backend',
+        'NAME': 'samtadb',
+        'USER': 'usersamta',
+        'PASSWORD': 'samta',
+        'HOST': 'localhost',  # Or the host where your PostgreSQL server is running
+        'PORT': '5432',       # Default PostgreSQL port
     }
 }
+DATABASE_ROUTERS = [
+    'django_tenants.routers.TenantSyncRouter',
+]
+
+TENANT_MODEL = 'multitenant_users.Tenant'  # Define the tenant model
+TENANT_DOMAIN_MODEL = 'multitenant_users.Domain'
+
+
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
@@ -142,3 +154,10 @@ STATIC_URL = '/static/'
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Specify tenant-specific apps and routers
+TENANT_APPS = [
+    'multitenant_users',
+
+]
+

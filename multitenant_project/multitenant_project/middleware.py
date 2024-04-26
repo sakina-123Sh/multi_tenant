@@ -22,9 +22,6 @@ class MultiTenancyMiddleware:
         return response
 
     def set_tenant_connection(self, tenant_id):
-        # Logic to set the database connection based on the tenant ID
-        # This is just a placeholder and needs to be implemented based on your application's requirements
-        # Here, we're assuming you have a dictionary mapping tenant IDs to database names
         tenant_database_mapping = {
             'tenant1': 'tenant1_db',
             'tenant2': 'tenant2_db',
@@ -39,6 +36,5 @@ class MultiTenancyMiddleware:
             connection.settings_dict[DEFAULT_DB_ALIAS]['NAME'] = database_name
 
     def reset_connection(self):
-        # Reset the database connection to the default database after the request is processed
-        # This ensures that subsequent requests don't use the tenant-specific database unintentionally
+
         connection.close()

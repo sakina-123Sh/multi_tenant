@@ -1,3 +1,9 @@
+import os
+import uuid
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+
+import pandas as pd
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -53,3 +59,50 @@ class UserListAPIView(APIView):
         return Response(serializer.data)
 
 
+
+
+class UpdateExcelAPIView(APIView):
+    def post(self, request):
+        # Extract file from request
+        file_obj = request.FILES.get('file')
+
+        # Check if the file object is received
+        if not file_obj:
+            return Response({'error': 'No file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Save the uploaded file temporarily
+            path = default_storage.save('tmp/' + str(uuid.uuid4()), ContentFile(file_obj.read()))
+
+            # Full path for the uploaded file
+            temp_file_path = os.path.join(default_storage.location, path)
+
+            # Read the Excel file
+            df = pd.read_excel(temp_file_path)
+
+            # Replace all empty cells in "SalesMan" column with "shaukat ali"
+            df['SalesMan'].fillna('shaukat ali', inplace=True)
+
+            # Convert 'OrderDate' column to datetime format
+            df['OrderDate'] = pd.to_datetime(df['OrderDate'], errors='coerce')
+
+            # Replace all cells in "OrderDate" column with date format "DD/MM/20YY"
+            df['OrderDate'] = df['OrderDate'].dt.strftime('%d/%m/%Y')
+
+            # Generate a unique output file name
+            output_file_name = f"output_{uuid.uuid4()}.xlsx"
+            output_file_path = os.path.join('/home/shaukatali/Desktop/', output_file_name)  # Replace with your output directory
+
+            # Create a new Excel file with updated data
+            df.to_excel(output_file_path, index=False)
+
+            # Cleanup the temporary file
+            default_storage.delete(path)
+
+            # Return success response with output file path
+            return Response({'message': 'Excel file updated successfully', 'output_file': output_file_path}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            # Cleanup the temporary file in case of failure
+            if 'temp_file_path' in locals():
+                default_storage.delete(path)
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

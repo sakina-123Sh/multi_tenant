@@ -1,6 +1,7 @@
 from django.core.validators import RegexValidator
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django_tenants.models import TenantMixin, DomainMixin
 
 class UserManager(BaseUserManager):
     def create_user(self, email, phone_number, password=None, **extra_fields):
@@ -23,7 +24,7 @@ class UserManager(BaseUserManager):
 
         return self.create_user(email, phone_number, password, **extra_fields)
 
-class User(AbstractBaseUser):
+class CustomUser(AbstractBaseUser):
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=20, default='' , unique=True, validators=[
         RegexValidator(
@@ -45,9 +46,25 @@ class User(AbstractBaseUser):
     def __str__(self):
         return self.email
 
+    class Meta:
+        abstract = True
+
+class Tenant(TenantMixin):
+    name = models.CharField(max_length=100)
+    # Add other fields as needed
+
+class Domain(DomainMixin):
+    pass
+
+class User(CustomUser):
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, default=1)
+
     def clean(self):
         from django.core.exceptions import ValidationError
 
-        # Check if the combination of email and phone number is unique
-        if User.objects.filter(email=self.email, phone_number=self.phone_number).exists():
-            raise ValidationError('A user with this email and phone number already exists')
+        # Check if the combination of email and phone number is unique within the tenant
+        if User.objects.filter(email=self.email, phone_number=self.phone_number, tenant=self.tenant).exists():
+            raise ValidationError('A user with this email and phone number already exists within the tenant')
+
+    class Meta:
+        unique_together = ('email', 'phone_number', 'tenant')
